@@ -9,7 +9,7 @@ enum Night { star, moon }
 
 class Constellation {
   Constellation({required this.name, required this.seed, required this.start, List<Night>? nights, this.end, this.endedByCrystal = false, this.cravings = 0})
-      : nights = [...?nights];
+    : nights = [...?nights];
 
   final String name;
   final int seed;
@@ -23,24 +23,24 @@ class Constellation {
   int get stars => nights.where((n) => n == Night.star).length;
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'seed': seed,
-        'start': dayKey(start),
-        'end': end == null ? null : dayKey(end!),
-        'nights': nights.map((n) => n.index).toList(),
-        'crystal': endedByCrystal,
-        'cravings': cravings,
-      };
+    'name': name,
+    'seed': seed,
+    'start': dayKey(start),
+    'end': end == null ? null : dayKey(end!),
+    'nights': nights.map((n) => n.index).toList(),
+    'crystal': endedByCrystal,
+    'cravings': cravings,
+  };
 
   factory Constellation.fromJson(Map<String, dynamic> j) => Constellation(
-        name: j['name'],
-        seed: j['seed'],
-        start: parseDay(j['start']),
-        end: j['end'] == null ? null : parseDay(j['end']),
-        nights: (j['nights'] as List).map((i) => Night.values[i as int]).toList(),
-        endedByCrystal: j['crystal'] ?? false,
-        cravings: j['cravings'] ?? 0,
-      );
+    name: j['name'],
+    seed: j['seed'],
+    start: parseDay(j['start']),
+    end: j['end'] == null ? null : parseDay(j['end']),
+    nights: (j['nights'] as List).map((i) => Night.values[i as int]).toList(),
+    endedByCrystal: j['crystal'] ?? false,
+    cravings: j['cravings'] ?? 0,
+  );
 }
 
 class Slip {
@@ -78,11 +78,38 @@ const milestones = [
 ];
 
 const _names = [
-  'First Spark', 'The Kite', 'The Lantern', 'The Heron', 'The Long Light', 'The Compass', 'The River',
-  'The Comet', 'The Orchard', 'The Harbor', 'The Ember', 'The Arrow', 'The Willow', 'The Bell', 'The Tide',
+  'First Spark',
+  'The Kite',
+  'The Lantern',
+  'The Heron',
+  'The Long Light',
+  'The Compass',
+  'The River',
+  'The Comet',
+  'The Orchard',
+  'The Harbor',
+  'The Ember',
+  'The Arrow',
+  'The Willow',
+  'The Bell',
+  'The Tide',
 ];
 
 const maxMoons = 3;
+
+/// Quick-pick labels mapped to the slip tags used for the sugar map.
+const logCategories = {
+  'Chai': 'Sweet drink',
+  'Soda': 'Sweet drink',
+  'Juice': 'Sweet drink',
+  'Dessert': 'Dessert',
+  'Chocolate': 'Snack',
+  'Biscuits': 'Snack',
+  // Names from the earlier quick picks.
+  'Chai, 2 tsp': 'Sweet drink',
+  'Can of soda': 'Sweet drink',
+  'Chocolate bar': 'Snack',
+};
 
 String dayKey(DateTime d) => '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 DateTime parseDay(String s) {
@@ -161,14 +188,26 @@ class AppState extends ChangeNotifier {
 
   int get nextMoonIn => 7 - (current.stars % 7);
 
-  /// Grams logged in [year], or ever when null.
-  int gramsEaten({int? year}) => sugarLogs.where((l) => year == null || l.day.year == year).fold(0, (s, l) => s + l.grams);
-  int honestLogs({int? year}) => sugarLogs.where((l) => year == null || l.day.year == year).length;
+  /// Grams logged in [year] (and [month]), or ever when both are null.
+  int gramsEaten({int? year, int? month}) => logsIn(year: year, month: month).fold(0, (s, l) => s + l.grams);
+  int honestLogs({int? year, int? month}) => logsIn(year: year, month: month).length;
   int gramsOn(DateTime day) => sugarLogs.where((l) => l.day == day).fold(0, (s, l) => s + l.grams);
-  int cleanNights({int? year}) => starDays.where((d) => year == null || d.year == year).length;
+  int cleanNights({int? year, int? month}) => starDays.where((d) => _inPeriod(d, year, month)).length;
+  List<SugarLog> logsIn({int? year, int? month}) => sugarLogs.where((l) => _inPeriod(l.day, year, month)).toList();
 
   /// Sugar the person would have eaten on their clean nights at their old habit.
-  int? gramsSkipped({int? year}) => baselineGrams == null ? null : baselineGrams! * cleanNights(year: year);
+  int? gramsSkipped({int? year, int? month}) => baselineGrams == null ? null : baselineGrams! * cleanNights(year: year, month: month);
+
+  /// Where a log's sugar came from: the slip tag picked that night, else a
+  /// guess from the quick pick it was logged with.
+  String sugarCategory(SugarLog l) {
+    for (final s in slips) {
+      if (s.day == l.day && s.tag != null) return s.tag!;
+    }
+    return logCategories[l.label] ?? 'Other';
+  }
+
+  static bool _inPeriod(DateTime d, int? year, int? month) => (year == null || d.year == year) && (month == null || d.month == month);
 
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
@@ -224,8 +263,7 @@ class AppState extends ChangeNotifier {
     _save();
   }
 
-  Constellation _newConstellation(DateTime start) =>
-      Constellation(name: _names[past.length % _names.length], seed: Random().nextInt(1 << 30), start: start);
+  Constellation _newConstellation(DateTime start) => Constellation(name: _names[past.length % _names.length], seed: Random().nextInt(1 << 30), start: start);
 
   /// After a week of silence we stop asking about each night: the constellation
   /// closes quietly (no crystal, nobody slipped) and a fresh one begins.
@@ -262,12 +300,7 @@ class AppState extends ChangeNotifier {
       if (m.night == current.length) hit = m;
     }
     _commit();
-    return LightResult(
-      starNumber: current.length,
-      earnedMoon: earnedMoon,
-      milestone: hit,
-      pastBest: past.fold(0, (m, c) => max(m, c.length)),
-    );
+    return LightResult(starNumber: current.length, earnedMoon: earnedMoon, milestone: hit, pastBest: past.fold(0, (m, c) => max(m, c.length)));
   }
 
   void recordSlip(DateTime day, {String? tag, required bool useMoon}) {
@@ -341,9 +374,23 @@ class AppState extends ChangeNotifier {
   void _seedDemo() {
     onboarded = true;
     past = [
-      Constellation(name: 'First Spark', seed: 11, start: addDays(today, -110), end: addDays(today, -106), nights: List.filled(4, Night.star), endedByCrystal: true),
+      Constellation(
+        name: 'First Spark',
+        seed: 11,
+        start: addDays(today, -110),
+        end: addDays(today, -106),
+        nights: List.filled(4, Night.star),
+        endedByCrystal: true,
+      ),
       Constellation(name: 'The Kite', seed: 23, start: addDays(today, -95), end: addDays(today, -86), nights: List.filled(9, Night.star), endedByCrystal: true),
-      Constellation(name: 'The Long Light', seed: 37, start: addDays(today, -70), end: addDays(today, -29), nights: [...List.filled(20, Night.star), Night.moon, ...List.filled(20, Night.star)], endedByCrystal: true),
+      Constellation(
+        name: 'The Long Light',
+        seed: 37,
+        start: addDays(today, -70),
+        end: addDays(today, -29),
+        nights: [...List.filled(20, Night.star), Night.moon, ...List.filled(20, Night.star)],
+        endedByCrystal: true,
+      ),
     ];
     current = Constellation(name: 'The Lantern', seed: 4242, start: addDays(today, -23), nights: List.filled(23, Night.star), cravings: 4);
     moons = 2;
@@ -352,9 +399,13 @@ class AppState extends ChangeNotifier {
     starDays = [for (var i = 77; i >= 1; i--) addDays(today, -i)];
     baselineGrams = 30;
     baselineAsked = true;
+    const picks = [('Dessert', 140), ('Soda', 70), ('Chocolate', 50), ('Dessert', 160), ('Chai', 16)];
     sugarLogs = [
-      for (var i = 0; i < 11; i++) SugarLog(addDays(today, -200 + i * 17), 112, label: 'Dessert'),
-      SugarLog(addDays(today, -3), 8, label: 'Chai'),
+      for (var i = 0; i < 11; i++) SugarLog(addDays(today, -200 + i * 17), picks[i % 5].$2, label: picks[i % 5].$1),
+      SugarLog(addDays(today, -26), 30, label: 'Dessert'),
+      SugarLog(addDays(today, -24), 8, label: 'Chai'),
     ];
+    // A night with sugar wasn't a clean one.
+    starDays.removeWhere((d) => sugarLogs.any((l) => l.day == d));
   }
 }

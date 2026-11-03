@@ -6,14 +6,13 @@ import '../sky.dart';
 import '../state.dart';
 import '../theme.dart';
 import 'lit.dart';
-import 'scan.dart';
 import 'sky_screen.dart';
 import 'slip.dart';
 import 'streak_share.dart';
 import 'sos.dart';
-import 'sugar_log.dart';
-import 'grow.dart';
-import 'share_card.dart';
+import 'pour.dart';
+import 'receipt.dart';
+import 'sugar_tab.dart';
 
 const _weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -23,7 +22,7 @@ String nightName(AppState s, DateTime d) {
   return _weekdays[d.weekday - 1];
 }
 
-/// Tonight and Sky tabs, with the craving SOS in the middle of the bar.
+/// Tonight, Sugar and Sky tabs, with the craving SOS in the bar.
 class Shell extends StatefulWidget {
   const Shell({super.key, required this.state});
   final AppState state;
@@ -49,22 +48,20 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
     final s = widget.state;
     final nav = Navigator.of(context);
     switch (screen) {
-      case 'sky' || 'sugar':
+      case 'sky':
+        setState(() => _tab = 2);
+      case 'sugar' || 'sugar2':
         setState(() => _tab = 1);
-      case 'log':
+      case 'pour':
         nav.push(
           MaterialPageRoute(
-            builder: (_) => SugarLogScreen(state: s, day: s.today),
+            builder: (_) => PourScreen(state: s, day: s.today),
           ),
         );
-      case 'grow':
-        final before = s.gramsEaten(year: s.today.year);
-        s.logSugar(s.today, 30);
-        nav.push(
-          MaterialPageRoute(
-            builder: (_) => GrowScreen(state: s, day: s.today, added: 30, before: before),
-          ),
-        );
+      case 'receipt':
+        // Last month, so the demo receipt has logs on it.
+        final last = DateTime(s.today.year, s.today.month - 1);
+        nav.push(MaterialPageRoute(builder: (_) => ReceiptScreen(state: s, year: last.year, month: last.month)));
       case 'streak':
         nav.push(MaterialPageRoute(builder: (_) => StreakShareScreen(state: s)));
       case 'streak2':
@@ -79,12 +76,8 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
             builder: (_) => StreakShareScreen(state: s, initial: StreakCard.milestone),
           ),
         );
-      case 'share':
-        nav.push(MaterialPageRoute(builder: (_) => ShareCardScreen(state: s)));
       case 'sos':
         _openSos();
-      case 'scan':
-        nav.push(MaterialPageRoute(builder: (_) => const ScanScreen()));
       case 'slip':
         nav.push(
           MaterialPageRoute(
@@ -115,8 +108,6 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
     }
   }
 
-  void _openScan() => Navigator.of(context).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => const ScanScreen()));
-
   Future<void> _openSos() async {
     final passed = await Navigator.of(context).push<bool>(MaterialPageRoute(fullscreenDialog: true, builder: (_) => const SosScreen()));
     if (passed == true && mounted) {
@@ -132,6 +123,7 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
         index: _tab,
         children: [
           TonightTab(state: widget.state),
+          SugarTab(state: widget.state),
           SkyScreen(state: widget.state),
         ],
       ),
@@ -182,18 +174,16 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
                   ),
                 ),
                 _NavItem(
-                  icon: const CrystalIcon(size: 22),
-                  label: 'Check food',
-                  semanticLabel: 'Check food for hidden sugar',
-                  color: C.soft,
-                  selected: false,
-                  onTap: _openScan,
-                ),
-                _NavItem(
-                  icon: Icon(Icons.auto_awesome_outlined, color: _tab == 1 ? C.gold : C.muted, size: 24),
-                  label: 'Sky',
+                  icon: Icon(Icons.grain_rounded, color: _tab == 1 ? C.gold : C.muted, size: 24),
+                  label: 'Sugar',
                   selected: _tab == 1,
                   onTap: () => setState(() => _tab = 1),
+                ),
+                _NavItem(
+                  icon: Icon(Icons.auto_awesome_outlined, color: _tab == 2 ? C.gold : C.muted, size: 24),
+                  label: 'Sky',
+                  selected: _tab == 2,
+                  onTap: () => setState(() => _tab = 2),
                 ),
               ],
             ),
@@ -205,22 +195,20 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
 }
 
 class _NavItem extends StatelessWidget {
-  const _NavItem({required this.icon, required this.label, required this.selected, required this.onTap, this.color, this.semanticLabel});
+  const _NavItem({required this.icon, required this.label, required this.selected, required this.onTap});
   final Widget icon;
   final String label;
-  final String? semanticLabel;
-  final Color? color;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? C.gold : this.color ?? C.muted;
+    final color = selected ? C.gold : C.muted;
     return Expanded(
       child: Semantics(
         selected: selected,
         button: true,
-        label: semanticLabel ?? label,
+        label: label,
         excludeSemantics: true,
         child: InkResponse(
           onTap: onTap,
@@ -251,11 +239,30 @@ class TonightTab extends StatefulWidget {
 
 class _TonightTabState extends State<TonightTab> with SingleTickerProviderStateMixin {
   late final AnimationController _twinkle = AnimationController(vsync: this, duration: const Duration(seconds: 6))..repeat();
+  final _clock = Stopwatch()..start();
+  late int _cravings = widget.state.current.cravings;
+  double? _freshAt;
 
   AppState get s => widget.state;
 
   @override
+  void initState() {
+    super.initState();
+    s.addListener(_onState);
+  }
+
+  /// A craving was just outlasted: play its comet first.
+  void _onState() {
+    final c = s.current.cravings;
+    if (c > _cravings) _freshAt = _seconds;
+    _cravings = c;
+  }
+
+  double get _seconds => _clock.elapsedMilliseconds / 1000;
+
+  @override
   void dispose() {
+    s.removeListener(_onState);
     _twinkle.dispose();
     super.dispose();
   }
@@ -272,12 +279,12 @@ class _TonightTabState extends State<TonightTab> with SingleTickerProviderStateM
     );
   }
 
-  /// Sugar first ("how much?"), then the cluster grows, then the night's choice.
+  /// Pour in how much first, then the night's choice.
   Future<void> _slip(DateTime day) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => SugarLogScreen(state: s, day: day),
+        builder: (_) => PourScreen(state: s, day: day),
       ),
     );
     Reminders.reschedule(s);
@@ -331,9 +338,20 @@ class _TonightTabState extends State<TonightTab> with SingleTickerProviderStateM
                   label: 'Your constellation: ${s.streak} stars${s.todayDone ? '' : ', with tonight\'s sugar crystal waiting'}',
                   child: AnimatedBuilder(
                     animation: _twinkle,
-                    builder: (_, _) => CustomPaint(
-                      painter: SkyPainter(constellation: s.current, showCrystal: !s.todayDone, twinkle: _twinkle.value, shootingStars: s.current.cravings),
-                    ),
+                    builder: (context, _) {
+                      final still = MediaQuery.disableAnimationsOf(context);
+                      final now = _seconds;
+                      return CustomPaint(
+                        painter: SkyPainter(
+                          constellation: s.current,
+                          showCrystal: !s.todayDone,
+                          twinkle: _twinkle.value,
+                          shootingStars: s.current.cravings,
+                          cometTime: still ? null : now,
+                          freshAge: still || _freshAt == null ? null : now - _freshAt!,
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),

@@ -77,13 +77,13 @@ const _sugars = <String, String>{
   'sugar': 'sugar',
 };
 
-const _watch = <String, String>{
-  'maltodextrin': 'starch that digests like sugar',
-  'dextrin': 'starch that digests like sugar',
-};
+const _watch = <String, String>{'maltodextrin': 'starch that digests like sugar', 'dextrin': 'starch that digests like sugar'};
 
 /// Phrases on packs that mention sugar without adding it.
-final _notIngredients = RegExp(r"(no|without|zero|free from) added sugars?|sugars?[- ]free|no sugars?|0 ?g sugars?|includes? \d+ ?g added sugars?|total sugars?|of which sugars?|sugars? \d|caramel colou?r", caseSensitive: false);
+final _notIngredients = RegExp(
+  r"(no|without|zero|free from) added sugars?|sugars?[- ]free|no sugars?|0 ?g sugars?|includes? \d+ ?g added sugars?|total sugars?|of which sugars?|sugars? \d|caramel colou?r",
+  caseSensitive: false,
+);
 
 String _normalise(String raw) {
   var t = raw.replaceAll(RegExp(r'-\s*\n\s*'), '').replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
@@ -114,3 +114,6 @@ List<SugarHit> findSugars(String raw) {
   scan(_sugars, false);
   return hits;
 }
+
+/// Every name the scanner knows, for the "names" list on the Sugar tab.
+final List<String> sugarNames = [..._sugars.keys.where((n) => n != 'sugar' && n != 'sugars'), ..._watch.keys];

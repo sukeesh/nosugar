@@ -42,10 +42,10 @@ class CrystalIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-        width: size * 48 / 54,
-        height: size,
-        child: CustomPaint(painter: _CrystalPainter(size, melt, opacity)),
-      );
+    width: size * 48 / 54,
+    height: size,
+    child: CustomPaint(painter: _CrystalPainter(size, melt, opacity)),
+  );
 }
 
 class _CrystalPainter extends CustomPainter {
@@ -118,6 +118,8 @@ class SkyPainter extends CustomPainter {
     this.lineColor = C.gold,
     this.starColor = C.gold,
     this.shootingStars = 0,
+    this.cometTime,
+    this.freshAge,
   });
 
   final Constellation constellation;
@@ -131,6 +133,12 @@ class SkyPainter extends CustomPainter {
   final Color lineColor;
   final Color starColor;
   final int shootingStars;
+
+  /// Seconds on a running clock; null draws comets as still trails.
+  final double? cometTime;
+
+  /// Seconds since a craving was just outlasted, to play its comet now.
+  final double? freshAge;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -147,10 +155,13 @@ class SkyPainter extends CustomPainter {
       for (var i = 1; i < n; i++) {
         path.lineTo(pts[i].dx, pts[i].dy);
       }
-      canvas.drawPath(path, Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = lineColor.withValues(alpha: 0.35));
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = lineColor.withValues(alpha: 0.35),
+      );
     }
 
     for (var i = 0; i < n; i++) {
@@ -200,21 +211,59 @@ class SkyPainter extends CustomPainter {
       final a = 0.25 + 0.35 * (0.5 + 0.5 * sin((twinkle + phase) * 2 * pi));
       canvas.drawCircle(p, 0.6 + rnd.nextDouble() * 0.8, Paint()..color = C.soft.withValues(alpha: a * 0.6));
     }
-    // A few shooting-star streaks: one for each craving outlasted (up to 5).
+    _paintComets(canvas, size);
+  }
+
+  /// Shooting stars: one per craving outlasted in this constellation (up to 5).
+  /// With [cometTime] they take turns streaking across; without it they sit
+  /// still as faint trails. [freshAge] plays the newest one right away.
+  void _paintComets(Canvas canvas, Size size) {
+    final n = min(shootingStars, 5);
+    if (n == 0) return;
     final srnd = Random(constellation.seed + 99);
-    for (var i = 0; i < min(shootingStars, 5); i++) {
-      final start = Offset(srnd.nextDouble() * size.width * 0.8 + size.width * 0.1, srnd.nextDouble() * size.height * 0.5);
-      const dir = Offset(-1, 0.45);
-      final end = start + dir * (26 + srnd.nextDouble() * 18);
-      canvas.drawLine(
-        start,
-        end,
-        Paint()
-          ..strokeWidth = 1.4
-          ..strokeCap = StrokeCap.round
-          ..shader = LinearGradient(colors: [C.sos.withValues(alpha: 0.9), C.sos.withValues(alpha: 0)]).createShader(Rect.fromPoints(start, end)),
-      );
+    const dir = Offset(-0.91, 0.41);
+    const slot = 3.2, life = 1.3;
+    for (var i = 0; i < n; i++) {
+      final start = Offset(srnd.nextDouble() * size.width * 0.7 + size.width * 0.25, srnd.nextDouble() * size.height * 0.5);
+      final travel = 90 + srnd.nextDouble() * 50;
+      if (cometTime == null) {
+        _comet(canvas, start + dir * travel, dir, 26 + travel * 0.1, 0.9, 1.4);
+        continue;
+      }
+      final newest = i == n - 1;
+      double? age;
+      if (newest && freshAge != null && freshAge! < life * 1.6) {
+        age = freshAge! / 1.6;
+      } else {
+        final local = (cometTime! - i * slot) % (n * slot + 1.5);
+        if (local < life) age = local;
+      }
+      if (age == null) continue;
+      final p = age / life;
+      final head = start + dir * travel * Curves.easeOutCubic.transform(p);
+      final fresh = newest && freshAge != null && freshAge! < life * 1.6;
+      _comet(canvas, head, dir, (fresh ? 70 : 46) * (1 - p * 0.4), sin(pi * p), fresh ? 2.2 : 1.6);
     }
+  }
+
+  void _comet(Canvas canvas, Offset head, Offset dir, double tail, double alpha, double width) {
+    if (alpha <= 0) return;
+    final end = head - dir * tail;
+    canvas.drawLine(
+      head,
+      end,
+      Paint()
+        ..strokeWidth = width
+        ..strokeCap = StrokeCap.round
+        ..shader = LinearGradient(
+          colors: [
+            C.sos.withValues(alpha: 0.95 * alpha),
+            C.sos.withValues(alpha: 0),
+          ],
+        ).createShader(Rect.fromPoints(head, end)),
+    );
+    canvas.drawCircle(head, width * 3, Paint()..color = C.sos.withValues(alpha: 0.18 * alpha));
+    canvas.drawCircle(head, width * 0.9, Paint()..color = Colors.white.withValues(alpha: alpha));
   }
 
   @override
@@ -281,7 +330,10 @@ class BurstPainter extends CustomPainter {
       canvas.save();
       canvas.translate(p.dx, p.dy);
       canvas.rotate(a + t * 6);
-      canvas.drawPath(Path()..addPolygon([Offset(-s, -s * 0.6), Offset(s, -s * 0.2), Offset(-s * 0.2, s)], true), Paint()..color = Color.lerp(col, C.gold, back)!.withValues(alpha: 1 - back * 0.6));
+      canvas.drawPath(
+        Path()..addPolygon([Offset(-s, -s * 0.6), Offset(s, -s * 0.2), Offset(-s * 0.2, s)], true),
+        Paint()..color = Color.lerp(col, C.gold, back)!.withValues(alpha: 1 - back * 0.6),
+      );
       canvas.restore();
     }
     final grow = Curves.elasticOut.transform(((t - 0.68) / 0.32).clamp(0, 1));
@@ -291,8 +343,10 @@ class BurstPainter extends CustomPainter {
         c,
         glowR,
         Paint()
-          ..shader = RadialGradient(colors: [C.gold.withValues(alpha: 0.35), C.gold.withValues(alpha: 0.08), C.gold.withValues(alpha: 0)], stops: const [0, 0.45, 1])
-              .createShader(Rect.fromCircle(center: c, radius: glowR)),
+          ..shader = RadialGradient(
+            colors: [C.gold.withValues(alpha: 0.35), C.gold.withValues(alpha: 0.08), C.gold.withValues(alpha: 0)],
+            stops: const [0, 0.45, 1],
+          ).createShader(Rect.fromCircle(center: c, radius: glowR)),
       );
       paintStar(canvas, c, unit * 0.17 * grow, C.gold);
     }

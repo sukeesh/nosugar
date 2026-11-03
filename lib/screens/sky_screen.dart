@@ -5,7 +5,6 @@ import '../sky.dart';
 import '../state.dart';
 import '../theme.dart';
 import 'streak_share.dart';
-import 'sugar_view.dart';
 
 const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -26,8 +25,6 @@ class SkyScreen extends StatefulWidget {
 }
 
 class _SkyScreenState extends State<SkyScreen> {
-  bool _sugar = AppState.demo && const String.fromEnvironment('SCREEN') == 'sugar';
-
   AppState get state => widget.state;
 
   @override
@@ -44,16 +41,12 @@ class _SkyScreenState extends State<SkyScreen> {
             children: [
               Row(
                 children: [
-                  Expanded(child: Text(_sugar ? 'Your sugar' : 'Your sky', style: T.display(36))),
+                  Expanded(child: Text('Your sky', style: T.display(36))),
                   CircleIconButton(icon: Icons.tune_rounded, tooltip: 'Settings', onPressed: () => _settings(context, s)),
                 ],
               ),
-              const SizedBox(height: 12),
-              _ViewSwitch(sugar: _sugar, onChanged: (v) => setState(() => _sugar = v)),
-              const SizedBox(height: 12),
-              if (_sugar)
-                SugarView(state: s)
-              else ...[
+              const SizedBox(height: 4),
+              ...[
                 Text(
                   '${s.totalStars} ${s.totalStars == 1 ? 'night' : 'nights'} lit · ${s.cravingsBeaten} cravings outlasted · ${s.moons} ${s.moons == 1 ? 'moon' : 'moons'}',
                   style: T.body(15, color: C.muted),
@@ -203,61 +196,6 @@ class _SkyScreenState extends State<SkyScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Stars (clean nights) and Sugar (what was eaten) are two views of one sky.
-class _ViewSwitch extends StatelessWidget {
-  const _ViewSwitch({required this.sugar, required this.onChanged});
-  final bool sugar;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget tab(String label, bool value, Widget icon) {
-      final on = sugar == value;
-      return Expanded(
-        child: Semantics(
-          selected: on,
-          button: true,
-          child: GestureDetector(
-            onTap: () => onChanged(value),
-            behavior: HitTestBehavior.opaque,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              height: 40,
-              decoration: BoxDecoration(color: on ? C.line : Colors.transparent, borderRadius: BorderRadius.circular(20)),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  icon,
-                  const SizedBox(width: 8),
-                  Text(
-                    label,
-                    style: T.body(14, color: on ? C.text : C.muted, weight: on ? FontWeight.w600 : FontWeight.w400, height: 1),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: C.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: C.line),
-      ),
-      child: Row(
-        children: [
-          tab('Stars', false, Icon(Icons.star_rounded, size: 16, color: sugar ? C.muted : C.gold)),
-          tab('Sugar', true, CrystalIcon(size: 16, opacity: sugar ? 1 : 0.6)),
-        ],
       ),
     );
   }

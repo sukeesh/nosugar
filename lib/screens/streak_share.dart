@@ -7,7 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../crystal.dart';
+import '../sugar.dart';
 import '../sky.dart';
 import '../state.dart';
 import '../theme.dart';

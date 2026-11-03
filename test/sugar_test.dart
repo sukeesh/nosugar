@@ -1,30 +1,18 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nosugar/crystal.dart';
 import 'package:nosugar/state.dart';
+import 'package:nosugar/sugar.dart';
+import 'package:nosugar/sugar_names.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('sugar wording', () {
-    test('packets in quarters', () {
-      expect(packets(1240), '1¼ packets');
-      expect(packets(250), '¼ packet');
-      expect(packets(2000), '2 packets');
-      expect(packets(90), 'less than a quarter packet');
-    });
-
     test('teaspoons in halves', () {
       expect(teaspoons(10), '2½ teaspoons');
       expect(teaspoons(8), '2 teaspoons');
       expect(teaspoons(4), '1 teaspoon');
       expect(teaspoons(2), '½ teaspoon');
-    });
-
-    test('weighs like the closest everyday thing', () {
-      expect(weighsLike(1240), 'about as heavy as a pineapple');
-      expect(weighsLike(2310), 'about as heavy as a 2-litre bottle of water');
-      expect(weighsLike(40), isNull);
     });
 
     test('grams format', () {
@@ -34,11 +22,16 @@ void main() {
       expect(formatGrams(10000), '10 kg');
     });
 
-    test('levels', () {
-      expect(levelFor(100).name, 'Shard');
-      expect(levelFor(1240).name, 'Cluster');
-      expect(nextLevel(1240)!.name, 'Geode');
-      expect(nextLevel(20000), isNull);
+    test('sugar pile shape', () {
+      expect(moundAt(0), 1);
+      expect(moundAt(1), 0);
+      expect(moundAt(-0.5), moundAt(0.5));
+    });
+
+    test('names list leaves out plain "sugar"', () {
+      expect(sugarNames, contains('jaggery'));
+      expect(sugarNames, contains('maltodextrin'));
+      expect(sugarNames, isNot(contains('sugar')));
     });
   });
 
@@ -65,6 +58,22 @@ void main() {
       expect(s.gramsEaten(year: 2026), 12);
       expect(s.honestLogs(), 1);
       expect(s.gramsSkipped(year: 2025), 0);
+    });
+
+    test('month filter and categories', () {
+      s.setBaseline(20);
+      s.lightNight(s.today);
+      now = DateTime(2026, 11, 2, 21);
+      s.logSugar(s.today, 35, label: 'Soda');
+      s.recordSlip(s.today, tag: 'Dessert', useMoon: false);
+      s.logSugar(addDays(s.today, -1), 8, label: 'Chai');
+      expect(s.gramsEaten(year: 2026, month: 11), 43);
+      expect(s.gramsEaten(year: 2026, month: 10), 0);
+      expect(s.gramsSkipped(year: 2026, month: 10), 20);
+      expect(s.gramsSkipped(year: 2026, month: 11), 0);
+      // The slip tag picked that night wins over the quick pick's guess.
+      expect(s.sugarCategory(s.logsIn(month: 11).first), 'Dessert');
+      expect(s.sugarCategory(s.logsIn(month: 11).last), 'Sweet drink');
     });
 
     test('no baseline means no skipped figure', () {
