@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#0B1020"/>
+  <g fill="#3A4366"><circle cx="190" cy="220" r="6"/><circle cx="840" cy="180" r="5"/><circle cx="860" cy="520" r="6"/><circle cx="170" cy="600" r="5"/></g>
+  <g transform="translate(512 680) scale(6.2) translate(-24 -27)">
+    <polygon points="24,2 44,13 24,24 4,13" fill="#F3EEF8"/>
+    <polygon points="4,13 24,24 24,52 4,41" fill="#CFC6E0"/>
+    <polygon points="24,24 44,13 44,41 24,52" fill="#A79DC0"/>
+  </g>
+  <g fill="#F3EEF8">
+    <polygon points="420,440 446,428 438,458" fill-opacity="0.85"/>
+    <polygon points="590,420 614,430 596,452" fill-opacity="0.75"/>
+    <polygon points="498,390 512,378 518,398" fill-opacity="0.65"/>
+  </g>
+  <path transform="translate(512 250) scale(8.4) translate(-12 -11.6)" d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z" fill="#F5C76B" stroke="#F5C76B" stroke-width="0.8" stroke-linejoin="round"/>
+</svg>
